@@ -1,0 +1,52 @@
+name: iOS
+on: [push, pull_request, workflow_dispatch]
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - run: brew install xcodegen
+      - run: xcodegen generate
+      - name: Build and test on an iPhone simulator
+        shell: bash
+        run: |
+          set -euo pipefail
+          destination="$(xcrun simctl list devices available --json | python3 -c '
+          import json, sys
+          runtimes = json.load(sys.stdin)["devices"]
+          phones = [
+              device["udid"]
+              for runtime, devices in runtimes.items() if ".iOS-" in runtime
+              for device in devices if device["name"].startswith("iPhone ")
+          ]
+          if not phones:
+              sys.exit("No available iPhone simulator")
+          print(phones[-1])
+          ')"
+          xcodebuild test -project mohipa.xcodeproj -scheme mohipa \
+            -destination "platform=iOS Simulator,id=$destination" \
+            -derivedDataPath build -parallel-testing-enabled NO CODE_SIGNING_ALLOWED=NO
+      - name: Package unsigned iPhone build
+        shell: bash
+        run: |
+          set -euo pipefail
+          xcodebuild build -project mohipa.xcodeproj -scheme mohipa \
+            -configuration Release -sdk iphoneos -destination 'generic/platform=iOS' \
+            -derivedDataPath build-device CODE_SIGNING_ALLOWED=NO
+          app=build-device/Build/Products/Release-iphoneos/mohipa.app
+          test -f "$app/mohipa"
+          /usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$app/Info.plist" | grep -Fxq '1.0.0'
+          /usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$app/Info.plist" | grep -Fxq '1'
+          /usr/libexec/PlistBuddy -c 'Print :UIFileSharingEnabled' "$app/Info.plist" | grep -qx true
+          /usr/libexec/PlistBuddy -c 'Print :LSSupportsOpeningDocumentsInPlace' "$app/Info.plist" | grep -qx true
+          mkdir -p build-device/package/Payload
+          ditto "$app" build-device/package/Payload/mohipa.app
+          (cd build-device/package && zip -qry ../mohipa-1.0.0-unsigned.ipa Payload)
+          unzip -tq build-device/mohipa-1.0.0-unsigned.ipa
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mohipa-1.0.0-unsigned
+          path: build-device/mohipa-1.0.0-unsigned.ipa
+          if-no-files-found: error
