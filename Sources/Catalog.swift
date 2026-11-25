@@ -20,20 +20,15 @@ private struct CatalogResponse: Decodable {
 
 struct Catalog {
     static func search(_ query: String, country: String, limit: Int) async throws -> [StoreApp] {
-        let appID = URLComponents(string: query).flatMap { url -> String? in
-            guard url.scheme == "https", url.host == "apps.apple.com" else { return nil }
-            return url.path.split(separator: "/").last.flatMap { part in
-                guard part.hasPrefix("id"), let id = Int(part.dropFirst(2)) else { return nil }
-                return String(id)
-            }
-        }
+        let storeLink = AppStoreLink(query)
+        let appID = storeLink?.appID
         let isBundleID = query.range(of: #"^[A-Za-z0-9-]+(\.[A-Za-z0-9-]+){2,}$"#, options: .regularExpression) != nil
         let lookup = appID != nil || isBundleID
         var url = URLComponents()
         url.scheme = "https"
         url.host = "itunes.apple.com"
         url.path = lookup ? "/lookup" : "/search"
-        var items = [URLQueryItem(name: "country", value: country),
+        var items = [URLQueryItem(name: "country", value: storeLink?.country ?? country),
                      URLQueryItem(name: "entity", value: "software")]
         if let appID = appID {
             items.append(URLQueryItem(name: "id", value: appID))
@@ -60,15 +55,19 @@ struct MohipaHome: View {
 
     @AppStorage("appearance") private var appearance: MohipaAppearance = .system
     @State private var selected = 0
+    @State private var requestedSearch: String?
 
     var body: some View {
         ZStack {
-            NavigationView { CatalogView(country: $country, limit: limit) }
+            NavigationView { CatalogView(country: $country, requestedSearch: $requestedSearch, limit: limit) }
                 .navigationViewStyle(.stack)
                 .opacity(selected == 0 ? 1 : 0)
                 .allowsHitTesting(selected == 0)
                 .accessibilityHidden(selected != 0)
-            IPAFileView()
+            IPAFileView { url in
+                requestedSearch = url.absoluteString
+                selected = 0
+            }
                 .opacity(selected == 1 ? 1 : 0)
                 .allowsHitTesting(selected == 1)
                 .accessibilityHidden(selected != 1)
@@ -131,6 +130,7 @@ struct MohipaHome: View {
 
 struct CatalogView: View {
     @Binding var country: String
+    @Binding var requestedSearch: String?
     let limit: Int
     @State private var query = ""
     @State private var results: [StoreApp] = []
@@ -199,6 +199,12 @@ struct CatalogView: View {
         }
         .navigationBarHidden(true)
         .onChange(of: country) { _ in runSearch() }
+        .onChange(of: requestedSearch) { link in
+            guard let link = link else { return }
+            requestedSearch = nil
+            query = link
+            runSearch()
+        }
     }
 
     private var searchBar: some View {

@@ -70,6 +70,7 @@ enum IPALibrary {
     }
 
     static func download(_ input: String, checksum: String) async throws {
+        guard AppStoreLink(input) == nil else { throw IPAFileError.storePage }
         let expected = try IPAChecksum.expected(checksum)
         guard let url = URL(string: input), isHTTPS(url) else { throw IPAFileError.invalidLink }
         let session = URLSession(configuration: .ephemeral, delegate: HTTPSRedirects(), delegateQueue: nil)
@@ -83,6 +84,11 @@ enum IPALibrary {
         }
         guard http.statusCode == 200 else {
             throw IPAFileError.serverStatus(http.statusCode)
+        }
+        let mime = response.mimeType?.lowercased()
+        guard AppStoreLink(finalURL.absoluteString) == nil,
+              mime != "text/html", mime != "application/xhtml+xml" else {
+            throw IPAFileError.webPage
         }
         let names = [response.suggestedFilename, finalURL.lastPathComponent, url.lastPathComponent]
         let name = names.compactMap { $0 }.first {
@@ -113,10 +119,13 @@ private final class HTTPSRedirects: NSObject, URLSessionTaskDelegate {
 
 private enum IPAFileError: LocalizedError {
     case invalidLink, invalidFile, downloadFailed
+    case storePage, webPage
     case serverStatus(Int)
 
     var errorDescription: String? {
         switch self {
+        case .storePage: return "هذا رابط App Store. استخدم البحث لعرض التطبيق."
+        case .webPage: return "الرابط يفتح صفحة ويب. استخدم رابط تنزيل مباشر لملف IPA."
         case .invalidLink: return "أدخل رابط HTTPS مباشر لملف IPA."
         case .invalidFile: return "اختر ملفًا عاديًا بامتداد IPA."
         case .downloadFailed: return "استجابة مصدر التنزيل غير صالحة."

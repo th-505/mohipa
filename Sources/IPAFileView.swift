@@ -7,6 +7,8 @@ private struct LocalIPA: Identifiable {
 }
 
 struct IPAFileView: View {
+    let searchAppStore: (URL) -> Void
+    @FocusState private var linkFocused: Bool
     @State private var importing = false
     @State private var files: [LocalIPA] = []
     @State private var sharing: LocalIPA?
@@ -26,10 +28,22 @@ struct IPAFileView: View {
                         Label("استيراد من الملفات", systemImage: "folder")
                     }
                     TextField("رابط HTTPS مباشر لملف IPA", text: $sourceLink)
+                        .focused($linkFocused)
                         .keyboardType(.URL)
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
                         .environment(\.layoutDirection, .leftToRight)
+                    if let storeLink = AppStoreLink(sourceLink) {
+                        Text("هذا رابط صفحة في App Store. تنزيل IPA يحتاج رابطًا مباشرًا للملف.")
+                            .font(.footnote)
+                            .foregroundColor(.secondary)
+                        Button {
+                            linkFocused = false
+                            searchAppStore(storeLink.url)
+                        } label: {
+                            Label("البحث عن التطبيق", systemImage: "magnifyingglass")
+                        }
+                    }
                     DisclosureGroup("التحقق من البصمة", isExpanded: $showVerification) {
                         TextField("بصمة SHA-256 من المصدر (اختياري)", text: $expectedChecksum)
                             .textInputAutocapitalization(.never)
@@ -39,7 +53,7 @@ struct IPAFileView: View {
                     if let downloadTask = downloadTask {
                         ProgressView("جارٍ التنزيل…")
                         Button("إلغاء التنزيل") { downloadTask.cancel() }
-                    } else {
+                    } else if AppStoreLink(sourceLink) == nil {
                         Button(action: startDownload) {
                             Label("تنزيل وحفظ IPA", systemImage: "arrow.down.circle.fill")
                         }
@@ -82,6 +96,7 @@ struct IPAFileView: View {
             .navigationTitle("التنزيلات")
         }
         .onAppear { perform { try reload() } }
+        .onChange(of: sourceLink) { _ in if downloadTask == nil { errorMessage = nil } }
         .fileImporter(isPresented: $importing, allowedContentTypes: [.item]) { result in
             perform {
                 let source = try result.get()
@@ -141,6 +156,7 @@ struct IPAFileView: View {
     private func startDownload() {
         guard downloadTask == nil else { return }
         let input = sourceLink.trimmingCharacters(in: .whitespacesAndNewlines)
+        linkFocused = false
         let checksum = expectedChecksum
         errorMessage = nil
         downloadTask = Task { @MainActor in
