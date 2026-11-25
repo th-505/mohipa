@@ -14,6 +14,7 @@ struct IPAFileView: View {
     @State private var pendingDeletion: LocalIPA?
     @State private var sourceLink = ""
     @State private var expectedChecksum = ""
+    @State private var showVerification = false
     @State private var downloadTask: Task<Void, Never>?
     @State private var errorMessage: String?
 
@@ -21,21 +22,27 @@ struct IPAFileView: View {
         NavigationView {
             List {
                 Section("إضافة ملف") {
-                    Button("استيراد من الملفات") { importing = true }
+                    Button { importing = true } label: {
+                        Label("استيراد من الملفات", systemImage: "folder")
+                    }
                     TextField("رابط HTTPS مباشر لملف IPA", text: $sourceLink)
                         .keyboardType(.URL)
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
                         .environment(\.layoutDirection, .leftToRight)
-                    TextField("بصمة SHA-256 من المصدر (اختياري)", text: $expectedChecksum)
-                        .textInputAutocapitalization(.never)
-                        .autocorrectionDisabled()
-                        .environment(\.layoutDirection, .leftToRight)
+                    DisclosureGroup("التحقق من البصمة", isExpanded: $showVerification) {
+                        TextField("بصمة SHA-256 من المصدر (اختياري)", text: $expectedChecksum)
+                            .textInputAutocapitalization(.never)
+                            .autocorrectionDisabled()
+                            .environment(\.layoutDirection, .leftToRight)
+                    }
                     if let downloadTask = downloadTask {
                         ProgressView("جارٍ التنزيل…")
                         Button("إلغاء التنزيل") { downloadTask.cancel() }
                     } else {
-                        Button("تنزيل الملف") { startDownload() }
+                        Button(action: startDownload) {
+                            Label("تنزيل وحفظ IPA", systemImage: "arrow.down.circle.fill")
+                        }
                             .disabled(sourceLink.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                     }
                     if let errorMessage = errorMessage {
@@ -72,7 +79,7 @@ struct IPAFileView: View {
                 }
             }
             .refreshable { perform { try reload() } }
-            .navigationTitle("ملفات IPA")
+            .navigationTitle("التنزيلات")
         }
         .onAppear { perform { try reload() } }
         .fileImporter(isPresented: $importing, allowedContentTypes: [.item]) { result in

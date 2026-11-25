@@ -1,5 +1,6 @@
 import Foundation
 import SwiftUI
+import UIKit
 
 struct StoreApp: Decodable, Identifiable {
     let trackId: Int
@@ -57,6 +58,7 @@ struct MohipaHome: View {
     @AppStorage("storeCountry") private var country = "SA"
     @AppStorage("searchLimit") private var limit = 25
 
+    @AppStorage("appearance") private var appearance: MohipaAppearance = .system
     @State private var selected = 0
 
     var body: some View {
@@ -70,31 +72,43 @@ struct MohipaHome: View {
                 .opacity(selected == 1 ? 1 : 0)
                 .allowsHitTesting(selected == 1)
                 .accessibilityHidden(selected != 1)
+            MohipaAccountsView()
+                .opacity(selected == 2 ? 1 : 0)
+                .allowsHitTesting(selected == 2)
+                .accessibilityHidden(selected != 2)
             NavigationView {
                 Form {
+                    Section("المظهر") {
+                        Picker("نمط الواجهة", selection: $appearance) {
+                            ForEach(MohipaAppearance.allCases) { mode in
+                                Text(mode.title).tag(mode)
+                            }
+                        }
+                    }
                     Stepper("نتائج البحث: \(limit)", value: $limit, in: 5...100, step: 5)
                 }
                 .navigationTitle("الإعدادات")
             }
             .navigationViewStyle(.stack)
-            .opacity(selected == 2 ? 1 : 0)
-            .allowsHitTesting(selected == 2)
-            .accessibilityHidden(selected != 2)
+            .opacity(selected == 3 ? 1 : 0)
+            .allowsHitTesting(selected == 3)
+            .accessibilityHidden(selected != 3)
         }
         .safeAreaInset(edge: .bottom, spacing: 0) {
             HStack(spacing: 6) {
                 tab("البحث", icon: "magnifyingglass", index: 0)
                 tab("التنزيلات", icon: "arrow.down.square", index: 1)
-                tab("الإعدادات", icon: "gearshape", index: 2)
+                tab("الحسابات", icon: "person.crop.circle", index: 2)
+                tab("الإعدادات", icon: "gearshape", index: 3)
             }
             .padding(5)
             .background(.ultraThinMaterial, in: Capsule())
-            .overlay(Capsule().strokeBorder(.white.opacity(0.22)))
+            .overlay(Capsule().strokeBorder(Color.primary.opacity(0.14)))
             .padding(.horizontal, 18)
             .padding(.vertical, 5)
         }
-        .preferredColorScheme(.dark)
-        .tint(.mint)
+        .preferredColorScheme(appearance.scheme)
+        .tint(.blue)
     }
 
     private func tab(_ label: String, icon: String, index: Int) -> some View {
@@ -107,8 +121,8 @@ struct MohipaHome: View {
             }
             .frame(maxWidth: .infinity)
             .padding(.vertical, 8)
-            .foregroundColor(selected == index ? .mint : .white)
-            .background(selected == index ? Color.black.opacity(0.65) : .clear, in: Capsule())
+            .foregroundColor(selected == index ? .blue : .primary)
+            .background(selected == index ? Color.blue.opacity(0.13) : .clear, in: Capsule())
         }
         .buttonStyle(.plain)
         .accessibilityAddTraits(selected == index ? .isSelected : [])
@@ -158,7 +172,7 @@ struct CatalogView: View {
                                 }
                             }
                         }
-                        .background(Color(white: 0.11), in: RoundedRectangle(cornerRadius: 24))
+                        .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 24))
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -167,7 +181,7 @@ struct CatalogView: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color.black.ignoresSafeArea())
+        .background(Color(.systemGroupedBackground).ignoresSafeArea())
         .sheet(isPresented: $showingCountries) {
             NavigationView {
                 List {
@@ -215,8 +229,8 @@ struct CatalogView: View {
         .buttonStyle(.plain)
         .padding(.horizontal, 16)
         .padding(.vertical, 13)
-        .background(Color(white: 0.10), in: Capsule())
-        .overlay(Capsule().strokeBorder(.white.opacity(0.22)))
+        .background(Color(.secondarySystemGroupedBackground), in: Capsule())
+        .overlay(Capsule().strokeBorder(Color.primary.opacity(0.14)))
         .padding(.horizontal, 18)
         .padding(.top, 6)
     }
@@ -229,7 +243,7 @@ struct CatalogView: View {
                 Image(systemName: "app.fill")
                     .foregroundColor(.secondary)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .background(Color(white: 0.17))
+                    .background(Color(.tertiarySystemFill))
             }
             .frame(width: 55, height: 55)
             .clipShape(RoundedRectangle(cornerRadius: 13))

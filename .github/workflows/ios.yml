@@ -37,8 +37,9 @@ jobs:
             -derivedDataPath build-device CODE_SIGNING_ALLOWED=NO
           app=build-device/Build/Products/Release-iphoneos/mohipa.app
           test -f "$app/mohipa"
+          test -f "$app/Assets.car"
           /usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$app/Info.plist" | grep -Fxq '1.0.0'
-          /usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$app/Info.plist" | grep -Fxq '1'
+          /usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$app/Info.plist" | grep -Fxq '2'
           /usr/libexec/PlistBuddy -c 'Print :UIFileSharingEnabled' "$app/Info.plist" | grep -qx true
           /usr/libexec/PlistBuddy -c 'Print :LSSupportsOpeningDocumentsInPlace' "$app/Info.plist" | grep -qx true
           mkdir -p build-device/package/Payload
